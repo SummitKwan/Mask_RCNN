@@ -1203,8 +1203,20 @@ def load_image_gt(dataset, config, image_id, augment=False, augmentation=None,
         defined in MINI_MASK_SHAPE.
     """
     # Load image and mask
-    image = dataset.load_image(image_id)
-    mask, class_ids = dataset.load_mask(image_id)
+
+    if ('USE_LOAD_IMAGE_MASK_WITH_RANDOM_CROP' in dir(config)) and config.USE_LOAD_IMAGE_MASK_WITH_RANDOM_CROP:
+        image, mask, class_ids = dataset.load_image_mask_crop(image_id)
+    else:
+        image = dataset.load_image(image_id)
+        mask, class_ids = dataset.load_mask(image_id)
+
+    # Note that some boxes might be all zeros if the corresponding mask got cropped out.
+    # and here is to filter them out
+    _idx = np.sum(mask, axis=(0, 1)) > 0
+    mask = mask[:, :, _idx]
+    class_ids = class_ids[_idx]
+
+
     original_shape = image.shape
     image, window, scale, padding, crop = utils.resize_image(
         image,
@@ -1214,11 +1226,6 @@ def load_image_gt(dataset, config, image_id, augment=False, augmentation=None,
         mode=config.IMAGE_RESIZE_MODE)
     mask = utils.resize_mask(mask, scale, padding, crop)
 
-    # Note that some boxes might be all zeros if the corresponding mask got cropped out.
-    # and here is to filter them out
-    _idx = np.sum(mask, axis=(0, 1)) > 0
-    mask = mask[:, :, _idx]
-    class_ids = class_ids[_idx]
 
     # Random horizontal flips.
     # TODO: will be removed in a future update in favor of augmentation
@@ -2308,7 +2315,8 @@ class MaskRCNN():
         if os.name is 'nt':
             workers = 0
         else:
-            workers = multiprocessing.cpu_count()
+            max_num_workers = 2
+            workers = min(multiprocessing.cpu_count(), max_num_workers)
 
         self.keras_model.fit_generator(
             train_generator,
