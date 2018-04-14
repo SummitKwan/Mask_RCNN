@@ -1260,7 +1260,7 @@ def load_image_gt(dataset, config, image_id, augment=False, augmentation=None,
 
         yn_empty_mask = (mask.size == 0)   # prevent empty mask error
         if yn_empty_mask:
-            mask = np.zeros((mask.shape[0], mask.shape[1]), dtype='uint8')
+            mask = np.zeros((mask.shape[0], mask.shape[1], 1), dtype='uint8')
         mask = det.augment_image(mask.astype(np.uint8),
                              hooks=imgaug.HooksImages(activator=hook))
         if yn_empty_mask:
